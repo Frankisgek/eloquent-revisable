@@ -5,9 +5,9 @@ namespace TestMonitor\Revisable\Renderers;
 use Illuminate\Support\Str;
 use Jfcherng\Diff\Differ;
 use Jfcherng\Diff\DiffHelper;
-use Ssddanbrown\HtmlDiff\Diff as HtmlDiffer;
 use TestMonitor\Revisable\Diff;
 use TestMonitor\Revisable\Renderers\Support\ArrayAligner;
+use TestMonitor\Revisable\Renderers\Support\HtmlDiffer;
 use TestMonitor\Revisable\Renderers\Support\HtmlFragment;
 
 class HtmlDiff
@@ -18,7 +18,8 @@ class HtmlDiff
     protected const array BLOCK_TAGS = [
         'p', 'div', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'section', 'article', 'header',
-        'footer', 'aside', 'nav', 'figure', 'figcaption', 'pre', 'hr', 'form', 'fieldset', 'dl', 'dt', 'dd',
+        'footer', 'aside', 'nav', 'figure', 'figcaption', 'pre', 'code', 'hr', 'form', 'fieldset',
+        'dl', 'dt', 'dd',
     ];
 
     /**
@@ -301,11 +302,11 @@ class HtmlDiff
     }
 
     /**
-     * Return true when the string contains list/table block structure (<ul>, <ol>, <table>).
+     * Return true when the string contains list/table/preformatted block structure.
      */
     protected function containsBlockStructure(string $value): bool
     {
-        return Str::of($value)->test('/<(ul|ol|table)[\s>]/i');
+        return Str::of($value)->test('/<(ul|ol|table|pre)[\s>]/i');
     }
 
     /**

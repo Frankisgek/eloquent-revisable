@@ -501,9 +501,9 @@ final class HtmlDiffRendererTest extends TestCase
         // When
         $result = $htmlDiff->field('value');
 
-        // Then — the word must appear in both views, not just the after view,
-        // and the before view marks it as a formatting change (not a deletion)
-        $this->assertStringContainsString('<del class="mod">Consequatur</del>', (string) $result['before']);
+        // Then — the word appears in both views, and the before view keeps the <strong> it
+        // had, marked as changed rather than dropped
+        $this->assertStringContainsString('<del><strong>Consequatur</strong></del>', (string) $result['before']);
         $this->assertStringContainsString('Consequatur', (string) $result['after']);
     }
 
@@ -522,9 +522,8 @@ final class HtmlDiffRendererTest extends TestCase
         // Then
         $this->assertStringNotContainsString('&lt;', (string) $result['before']);
         $this->assertStringNotContainsString('&lt;', (string) $result['after']);
-        $this->assertStringContainsString('<strong>', (string) $result['after']);
-        $this->assertStringContainsString('<ins class="mod">', (string) $result['after']);
-        $this->assertStringContainsString('Consequatur', (string) $result['after']);
+        $this->assertStringContainsString('<ins><strong>Consequatur</strong></ins>', (string) $result['after']);
+        $this->assertStringContainsString('<del>Consequatur</del>', (string) $result['before']);
     }
 
     #[Test]
@@ -561,8 +560,170 @@ final class HtmlDiffRendererTest extends TestCase
         $result = $htmlDiff->field('value');
 
         // Then
-        $this->assertSame(1, substr_count($result['after'], '<ins class="mod">'));
-        $this->assertStringContainsString('<ins class="mod">Hello world</ins>', (string) $result['after']);
+        $this->assertSame(1, substr_count($result['after'], '<ins>'));
+        $this->assertStringContainsString('<ins><strong>Hello world</strong></ins>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_keeps_the_new_formatting_out_of_the_before_view()
+    {
+        // Given — a paragraph's entire content is wrapped in <strong>
+        $htmlDiff = $this->diffFor('<p>test</p>', '<p><strong>test</strong></p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — the before view shows the text unformatted; carrying the new <strong> over
+        // would render both views bold and hide the change
+        $this->assertSame('<p><del>test</del></p>', (string) $result['before']);
+        $this->assertSame('<p><ins><strong>test</strong></ins></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_keeps_the_old_formatting_in_the_before_view()
+    {
+        // Given — the mirror direction: the <strong> wrapper is removed
+        $htmlDiff = $this->diffFor('<p><strong>test</strong></p>', '<p>test</p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — the before view keeps the formatting it had, the after view drops it
+        $this->assertSame('<p><del><strong>test</strong></del></p>', (string) $result['before']);
+        $this->assertSame('<p><ins>test</ins></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_marks_a_word_wrapped_in_nested_formatting_tags()
+    {
+        // Given — two wrappers at once, neither of which existed before
+        $htmlDiff = $this->diffFor('<p>test</p>', '<p><strong><em>test</em></strong></p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — both wrappers belong to the after view only, grouped as one change
+        $this->assertSame('<p><del>test</del></p>', (string) $result['before']);
+        $this->assertSame('<p><ins><strong><em>test</em></strong></ins></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_marks_a_word_unwrapped_from_nested_formatting_tags()
+    {
+        // Given — the mirror direction: both wrappers are stripped off at once
+        $htmlDiff = $this->diffFor('<p><strong><em>test</em></strong></p>', '<p>test</p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — the nested pair stays intact in the before view, as a single change
+        $this->assertSame('<p><del><strong><em>test</em></strong></del></p>', (string) $result['before']);
+        $this->assertSame('<p><ins>test</ins></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_marks_a_word_wrapped_in_a_tag_the_differ_treats_as_plain()
+    {
+        // Given — <mark> isn't in the underlying differ's formatting-tag list, so the wrap
+        // would otherwise pass through unmarked, leaving both views looking identical
+        $htmlDiff = $this->diffFor('<p>hello world</p>', '<p>hello <mark>world</mark></p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — the differ renders the plain side's leading space as a non-breaking one
+        $this->assertSame("<p>hello<del>\u{00A0}world</del></p>", (string) $result['before']);
+        $this->assertSame('<p>hello<ins> <mark>world</mark></ins></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_marks_a_word_unwrapped_from_a_tag_the_differ_treats_as_plain()
+    {
+        // Given — the mirror direction
+        $htmlDiff = $this->diffFor('<p>hello <mark>world</mark></p>', '<p>hello world</p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — the differ renders the plain side's leading space as a non-breaking one
+        $this->assertSame('<p>hello<del> <mark>world</mark></del></p>', (string) $result['before']);
+        $this->assertSame("<p>hello<ins>\u{00A0}world</ins></p>", (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_leaves_an_inline_code_wrap_unmarked()
+    {
+        // Given — <code> is block-level here, so it isn't compared as a single unit, and the
+        // differ doesn't count it as formatting either
+        $htmlDiff = $this->diffFor('<p>hello world</p>', '<p>hello <code>world</code></p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — a known gap: the wrap goes unmarked, and the before view is handed a <code>
+        // that side never had
+        $this->assertSame('<p>hello <code>world</code></p>', (string) $result['before']);
+        $this->assertSame('<p>hello <code>world</code></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_leaves_an_inline_code_unwrap_unmarked()
+    {
+        // Given — the mirror direction, with the same gap
+        $htmlDiff = $this->diffFor('<p>hello <code>world</code></p>', '<p>hello world</p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — this time the after view keeps a <code> that is no longer there
+        $this->assertSame('<p>hello <code>world</code></p>', (string) $result['before']);
+        $this->assertSame('<p>hello <code>world</code></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_marks_a_word_wrapped_in_a_link()
+    {
+        // Given — a link is a tag-only change like any other wrapper
+        $htmlDiff = $this->diffFor('<p>test</p>', '<p><a href="/x">test</a></p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — the before view is plain text, the after view carries the link
+        $this->assertSame('<p><del>test</del></p>', (string) $result['before']);
+        $this->assertSame('<p><ins><a href="/x">test</a></ins></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_keeps_a_removed_link_out_of_the_after_view()
+    {
+        // Given — the mirror direction: the link is unwrapped
+        $htmlDiff = $this->diffFor('<p><a href="/x">test</a></p>', '<p>test</p>');
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then
+        $this->assertSame('<p><del><a href="/x">test</a></del></p>', (string) $result['before']);
+        $this->assertSame('<p><ins>test</ins></p>', (string) $result['after']);
+    }
+
+    #[Test]
+    public function it_marks_a_whole_inline_element_when_its_text_changes()
+    {
+        // Given — only the link text changes; the anchor and its href stay put on both sides
+        $htmlDiff = $this->diffFor(
+            '<p><a href="/x">one two</a></p>',
+            '<p><a href="/x">one three</a></p>',
+        );
+
+        // When
+        $result = $htmlDiff->field('value');
+
+        // Then — the grouping that surfaces a wrap costs detail inside the element: editing
+        // one word re-marks the whole link
+        $this->assertSame('<p><del><a href="/x">one two</a></del></p>', (string) $result['before']);
+        $this->assertSame('<p><ins><a href="/x">one three</a></ins></p>', (string) $result['after']);
     }
 
     // HTML-aware diffing — newlines
@@ -850,7 +1011,7 @@ final class HtmlDiffRendererTest extends TestCase
 
         // Then — the <mark> span is gone from the after view, not left behind as <mark></mark>
         $this->assertStringNotContainsString('<mark>', (string) $result['after']);
-        $this->assertStringContainsString('<mark><del>hi</del></mark>', (string) $result['before']);
+        $this->assertStringContainsString('<del><mark>hi</mark></del>', (string) $result['before']);
     }
 
     // HTML-aware diffing — structural mismatch (full swap)
