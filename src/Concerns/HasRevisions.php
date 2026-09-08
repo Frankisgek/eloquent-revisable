@@ -596,7 +596,7 @@ trait HasRevisions
             ->limit($options->limit)
             ->type(RevisionType::Rollback)
             ->properties([
-                'rollback_from' => $revision->name,
+                'rollback_from' => $revision->version,
             ])
             ->save();
     }

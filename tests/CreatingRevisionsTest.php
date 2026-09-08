@@ -439,7 +439,7 @@ final class CreatingRevisionsTest extends TestCase
     }
 
     #[Test]
-    public function it_stores_the_source_revision_name_on_the_rollback_revision()
+    public function it_stores_the_source_revision_version_on_the_rollback_revision()
     {
         // Given
         $post = $this->createPost();
@@ -453,7 +453,7 @@ final class CreatingRevisionsTest extends TestCase
         // Then
         $rollback = $post->revisions()->latest('id')->firstOrFail();
 
-        $this->assertEquals($source->name, $rollback->properties['rollback_from']);
+        $this->assertEquals($source->version, $rollback->properties['rollback_from']);
     }
 
     #[Test]

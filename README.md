@@ -489,6 +489,7 @@ The revision created after a rollback is flagged with `rollback = true`. This ha
 
 - **It is never targeted by `replaceWhen`.** When a model uses living snapshots, subsequent edits replace the most recent regular revision — the rollback revision is always preserved as a permanent checkpoint.
 - **It can be filtered using the built-in scopes** (`notRollback`, `onlyRollbacks`) — see [Querying revisions](#querying-revisions).
+- **It records its source in the `rollback_from` property.** This holds the version number of the revision that was rolled back to.
 
 ---
 
