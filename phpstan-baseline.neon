@@ -211,12 +211,6 @@ parameters:
 			path: src/Revisioner.php
 
 		-
-			message: '#^Method TestMonitor\\Revisable\\Revisioner\:\:withAttributeValue\(\) has parameter \$attributes with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/Revisioner.php
-
-		-
 			message: '#^Method TestMonitor\\Revisable\\Revisioner\:\:withAttributeValue\(\) has parameter \$data with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -224,12 +218,6 @@ parameters:
 
 		-
 			message: '#^Method TestMonitor\\Revisable\\Revisioner\:\:withAttributeValue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/Revisioner.php
-
-		-
-			message: '#^Method TestMonitor\\Revisable\\Revisioner\:\:withPivotAttributeValue\(\) has parameter \$attributes with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: src/Revisioner.php
