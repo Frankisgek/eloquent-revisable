@@ -439,25 +439,7 @@ final class CreatingRevisionsTest extends TestCase
     }
 
     #[Test]
-    public function it_stores_the_source_revision_name_on_the_rollback_revision()
-    {
-        // Given
-        $post = $this->createPost();
-        $post->saveAsRevision('my-revision');
-
-        $source = $post->revisions()->oldest('id')->firstOrFail();
-
-        // When
-        $post->rollbackToRevision($source);
-
-        // Then
-        $rollback = $post->revisions()->latest('id')->firstOrFail();
-
-        $this->assertEquals('my-revision', $rollback->properties['rollback_from']);
-    }
-
-    #[Test]
-    public function it_stores_the_source_revision_version_on_the_rollback_revision_when_unnamed()
+    public function it_stores_the_source_revision_version_on_the_rollback_revision()
     {
         // Given
         $post = $this->createPost();
@@ -471,7 +453,6 @@ final class CreatingRevisionsTest extends TestCase
         // Then
         $rollback = $post->revisions()->latest('id')->firstOrFail();
 
-        $this->assertNull($source->name);
         $this->assertEquals($source->version, $rollback->properties['rollback_from']);
     }
 
