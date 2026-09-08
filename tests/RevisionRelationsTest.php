@@ -3,6 +3,7 @@
 namespace TestMonitor\Revisable\Tests;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -404,6 +405,40 @@ final class RevisionRelationsTest extends TestCase
             $this->assertEquals($comment->title, $revision->metadata['relations']['comments']['records']['items'][$i - 1]['title']);
             $this->assertEquals($comment->content, $revision->metadata['relations']['comments']['records']['items'][$i - 1]['content']);
         }
+    }
+
+    #[Test]
+    public function it_stores_a_relation_field_with_a_primitive_cast_using_its_cast_type()
+    {
+        // Given
+        $post = new class extends Post
+        {
+            public function getRevisionOptions(): RevisableOptions
+            {
+                return parent::getRevisionOptions()->withRelations('comments');
+            }
+        };
+
+        $post = $this->createPost($post);
+
+        // When — a boolean arriving as a string, the way request input does
+        $comment = $post->comments()->create([
+            'title' => 'Comment title',
+            'content' => 'Comment content',
+            'date' => Carbon::now(),
+            'active' => '1',
+        ]);
+
+        $comment->mergeCasts(['active' => 'boolean']);
+
+        $post->setRelation('comments', new EloquentCollection([$comment]));
+
+        $this->modifyPost($post);
+
+        // Then
+        $revision = $post->revisions()->firstOrFail();
+
+        $this->assertTrue($revision->metadata['relations']['comments']['records']['items'][0]['active']);
     }
 
     #[Test]

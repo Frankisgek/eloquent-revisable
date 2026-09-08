@@ -326,4 +326,38 @@ final class RevisionFieldsTest extends TestCase
         $this->assertTrue($model->relationLoaded('reply'));
         $this->assertNull($model->reply);
     }
+
+    #[Test]
+    public function it_stores_a_field_with_a_primitive_cast_using_its_cast_type()
+    {
+        // Given
+        $post = $this->createPost(new class extends Post
+        {
+            protected $casts = ['votes' => 'integer'];
+        });
+
+        // When — an integer arriving as a string, the way request input does
+        $this->modifyPost($post, ['votes' => '20']);
+
+        // Then
+        $this->assertSame(20, $post->latestRevision->metadata['attributes']['votes']);
+    }
+
+    #[Test]
+    public function it_does_not_report_a_field_with_a_primitive_cast_as_changed_when_only_its_type_differs()
+    {
+        // Given
+        $post = $this->createPost(new class extends Post
+        {
+            protected $casts = ['votes' => 'integer'];
+        });
+
+        $this->modifyPost($post, ['votes' => '20']);
+
+        // When
+        $post->fresh()->update(['name' => 'Yet another post name']);
+
+        // Then
+        $this->assertSame(['name'], $post->latestRevision->changed);
+    }
 }

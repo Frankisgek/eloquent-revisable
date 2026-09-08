@@ -357,7 +357,8 @@ class Revisioner
     }
 
     /**
-     * Strip the primary key, timestamps, and unconfigured fields from a model data array.
+     * Strip the primary key, timestamps, and unconfigured fields from a model data array, normalizing
+     * the values that remain.
      *
      * @param array<string, mixed> $data
      * @return array<string, mixed>
@@ -385,7 +386,26 @@ class Revisioner
             }
         }
 
+        foreach ($data as $field => $value) {
+            $data[$field] = $this->castValue($this->model, $field, $value);
+        }
+
         return $data;
+    }
+
+    /**
+     * Normalize a value for a numeric or boolean cast, so a snapshot never depends on where the value
+     * came from. Other casts stay raw: a rollback writes the stored value back verbatim.
+     */
+    protected function castValue(Model $model, string $field, mixed $value): mixed
+    {
+        return match (true) {
+            $value === null => null,
+            $model->hasCast($field, ['int', 'integer']) => (int) $value,
+            $model->hasCast($field, ['real', 'float', 'double']) => (float) $value,
+            $model->hasCast($field, ['bool', 'boolean']) => (bool) $value,
+            default => $value,
+        };
     }
 
     /**
@@ -444,7 +464,7 @@ class Revisioner
                     continue;
                 }
 
-                $data = $this->withAttributeValue($data, $model->getAttributes(), $index, $field, $value);
+                $data = $this->withAttributeValue($data, $model, $index, $field, $value);
             }
         }
 
@@ -489,46 +509,40 @@ class Revisioner
                     continue;
                 }
 
-                $data = $this->withAttributeValue($data, $model->getAttributes(), $index, $field, $value);
+                $data = $this->withAttributeValue($data, $model, $index, $field, $value);
             }
 
             foreach ($pivot->getRawOriginal() as $field => $value) {
-                $data = $this->withPivotAttributeValue($data, $pivot->getAttributes(), $index, $field, $value);
+                $data = $this->withPivotAttributeValue($data, $pivot, $index, $field, $value);
             }
         }
 
         return $data;
     }
 
-    /**
-     * @param string|int|null $value
-     */
     protected function withAttributeValue(
         array $data,
-        array $attributes,
+        Model $model,
         int $index,
         string $field,
-        $value = null
+        mixed $value = null
     ): array {
-        if (array_key_exists($field, $attributes)) {
-            $data['records']['items'][$index][$field] = $value;
+        if (array_key_exists($field, $model->getAttributes())) {
+            $data['records']['items'][$index][$field] = $this->castValue($model, $field, $value);
         }
 
         return $data;
     }
 
-    /**
-     * @param string|int|null $value
-     */
     protected function withPivotAttributeValue(
         array $data,
-        array $attributes,
+        Model $pivot,
         int $index,
         string $field,
-        $value = null
+        mixed $value = null
     ): array {
-        if (array_key_exists($field, $attributes)) {
-            $data['pivots']['items'][$index][$field] = $value;
+        if (array_key_exists($field, $pivot->getAttributes())) {
+            $data['pivots']['items'][$index][$field] = $this->castValue($pivot, $field, $value);
         }
 
         return $data;
